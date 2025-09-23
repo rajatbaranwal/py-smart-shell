@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Web Terminal</title>
+    <style>
+        body {
+            background-color: black;
+            color: lime;
+            font-family: monospace;
+            padding: 10px;
+        }
+        #terminal {
+            white-space: pre-wrap;
+            min-height: 80vh;
+        }
+        input {
+            background: black;
+            color: lime;
+            border: none;
+            outline: none;
+            width: 100%;
+            font-family: monospace;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div id="terminal"></div>
+    <input id="commandInput" autofocus placeholder="Type a command..." />
+
+    <script>
+        const terminal = document.getElementById("terminal");
+        const input = document.getElementById("commandInput");
+        const commands = ["pwd","ls","cd","mkdir","rm","cat","echo","cpu","mem","ps","help","clear","exit","quit"];
+        let history = [];
+        let historyIndex = -1;
+
+        // Function to type output like a real terminal (character by character)
+        async function typeOutput(text) {
+            return new Promise(resolve => {
+                let i = 0;
+                const interval = setInterval(() => {
+                    terminal.innerHTML += text[i];
+                    i++;
+                    window.scrollTo(0, document.body.scrollHeight);
+                    if (i >= text.length) {
+                        clearInterval(interval);
+                        resolve();
+                    }
+                }, 10); // Adjust speed (ms per character)
+            });
+        }
+
+        async function sendCommand(cmd) {
+            terminal.innerHTML += `\n$ ${cmd}\n`;
+            const res = await fetch("/run", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ command: cmd })
+            });
+
+            const data = await res.json();
+
+            if (data.output === "__CLEAR__") {
+                terminal.innerHTML = "";
+            } else {
+                await typeOutput(data.output + "\n");
+            }
+
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+
+        input.addEventListener("keydown", async (event) => {
+            if (event.key === "Enter") {
+                const cmd = input.value.trim();
+                if (!cmd) return;
+
+                history.push(cmd);
+                historyIndex = history.length;
+                await sendCommand(cmd);
+                input.value = "";
+            }
+            else if (event.key === "ArrowUp") {
+                if (historyIndex > 0) {
+                    historyIndex--;
+                    input.value = history[historyIndex];
+                }
+                event.preventDefault();
+            }
+            else if (event.key === "ArrowDown") {
+                if (historyIndex < history.length - 1) {
+                    historyIndex++;
+                    input.value = history[historyIndex];
+                } else {
+                    historyIndex = history.length;
+                    input.value = "";
+                }
+                event.preventDefault();
+            }
+            else if (event.key === "Tab") {
+                event.preventDefault();
+                const currentText = input.value.trim();
+                if (!currentText) return;
+                const matches = commands.filter(cmd => cmd.startsWith(currentText));
+                if (matches.length === 1) {
+                    input.value = matches[0];
+                } else if (matches.length > 1) {
+                    terminal.innerHTML += `\n${matches.join("  ")}\n`;
+                    window.scrollTo(0, document.body.scrollHeight);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
