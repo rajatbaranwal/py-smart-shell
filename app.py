@@ -100,4 +100,6 @@ def run():
     return jsonify({"output": "\n".join(outputs), "prompt": generate_prompt()})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 5000))  # Render gives PORT env var
+    app.run(host="0.0.0.0", port=port, debug=False)
